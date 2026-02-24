@@ -26,13 +26,16 @@ If this app saved you from buying a dedicated handbrake, consider buying me a co
 ## Setup & Usage
 
 1. **Connect your device** before starting the app. It should detect it automatically (especially Logitech wheels like the G920).
-2. **Bind your buttons:** Click the "Bind" buttons in the app and press the button on your wheel you want to use for the handbrake.
-   - *Tip: You can set different buttons for different handbrake strengths (e.g., 50% and 100%).*
-3. **Choose your output:** Pick a vJoy device and axis (usually Device 1, Axis X is fine).
-4. **Pick a mode:**
+2. **Bind your buttons:** You can simply bind any button to engage the handbrake, although this app is intended to convert a shifter into a handbrake, to do so:
+      - *Attatch rubber bands or hair ties to shifter to lock in 3rd gear*
+      - *Bind 3rd gear to disengage handbrake*
+      - *Optionally bind neutral (right click for none) to a partial stage*
+      - *Bind 4th gear to engage handbrake*  
+4. **Choose your output:** Pick a vJoy device and axis (usually Device 1, Axis X is fine).
+5. **Pick a mode:**
    - **Instant:** Handbrake snaps on and off instantly.
    - **Smooth:** Handbrake ramps up gradually for a more realistic feel.
-5. **Hit Start:** The gauge will show your handbrake working. Now go into your sim racing game's settings and map the handbrake to the vJoy axis you chose.
+6. **Hit Start:** The gauge will show your handbrake working. Now go into your sim racing game's settings and map the handbrake to the vJoy axis you chose.
 
 ---
 
