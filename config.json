@@ -1,5 +1,5 @@
 {
-  "device_name": "Logitech G HUB G920 Driving Force Racing Wheel USB",
+  "device_name": "",
   "vjoy_device": 1,
   "axis": "X",
   "poll_rate": 120,
@@ -8,22 +8,25 @@
   "release_speed": 300,
   "stages": [
     {
-      "label": "First stage",
+      "label": "Disengaged",
       "percent": 0,
       "button": 14,
-      "editable": false
+      "editable": false,
+      "removable": false
     },
     {
-      "label": "Stage 1",
+      "label": "Partially engaged",
       "percent": 50,
-      "button": -1,
-      "editable": true
+      "button": 1,
+      "editable": true,
+      "removable": true
     },
     {
-      "label": "Last stage",
+      "label": "Engaged",
       "percent": 100,
-      "button": 15,
-      "editable": false
+      "button": 0,
+      "editable": true,
+      "removable": false
     }
   ]
 }

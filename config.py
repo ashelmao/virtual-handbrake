@@ -24,11 +24,11 @@ DEFAULTS = {
     "axis": "X",
     "poll_rate": 120,
     "mode": "Instant",
-    "engage_speed": 500,
-    "release_speed": 300,
+    "engage_speed": 200,
+    "release_speed": 333,
     "stages": [
-        {"label": "First stage",  "percent": 0,   "button": 14, "editable": False},
-        {"label": "Last stage",   "percent": 100,  "button": 14, "editable": False},
+        {"label": "Disengaged",  "percent": 0,   "button": 14, "editable": False, "removable": False},
+        {"label": "Engaged",     "percent": 100, "button": 14, "editable": True,  "removable": False},
     ],
 }
 

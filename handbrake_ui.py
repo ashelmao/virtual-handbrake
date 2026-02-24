@@ -11,8 +11,9 @@ from collections import deque
 from PySide6.QtCore import Qt, QTimer, Signal, QObject, QRectF, QPointF
 from PySide6.QtGui import (
     QFont, QColor, QPainter, QPen, QPainterPath,
-    QLinearGradient, QRadialGradient,
+    QLinearGradient, QRadialGradient, QDesktopServices,
 )
+from PySide6.QtCore import QUrl as _QUrl
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QComboBox, QSpinBox, QPushButton, QFrame,
@@ -88,6 +89,33 @@ QFrame#card {
     background-color: rgba(255, 255, 255, 8);
     border: 1px solid rgba(255, 255, 255, 10);
     border-radius: 14px;
+}
+
+/* ── Stage Cards ── */
+
+QFrame#stageRow {
+    background-color: rgba(255, 255, 255, 5);
+    border: 1px solid rgba(255, 255, 255, 6);
+    border-radius: 10px;
+}
+
+QLabel#stageName {
+    font-size: 12px;
+    font-weight: 600;
+    color: #d4d4d8;
+    background: transparent;
+    border: none;
+}
+
+QLabel#pctPill {
+    font-size: 13px;
+    color: #52525b;
+    background-color: rgba(255, 255, 255, 4);
+    border: 1px solid rgba(255, 255, 255, 6);
+    border-radius: 8px;
+    padding: 5px 8px;
+    min-height: 20px;
+    qproperty-alignment: AlignCenter;
 }
 
 /* ── Combo Box ── */
@@ -287,17 +315,17 @@ QPushButton#removeStageBtn:disabled {
 }
 
 QPushButton#addStageBtn {
-    background-color: rgba(129, 140, 248, 12);
+    background-color: rgba(129, 140, 248, 8);
     color: #a5b4fc;
-    border: 1px dashed rgba(129, 140, 248, 45);
+    border: 1px solid rgba(129, 140, 248, 25);
     font-weight: 500;
     font-size: 12px;
     padding: 6px 16px;
-    border-radius: 8px;
+    border-radius: 10px;
 }
 QPushButton#addStageBtn:hover {
-    background-color: rgba(129, 140, 248, 22);
-    border-color: rgba(129, 140, 248, 60);
+    background-color: rgba(129, 140, 248, 18);
+    border-color: rgba(129, 140, 248, 50);
     color: #e0e7ff;
 }
 
@@ -520,6 +548,7 @@ class ArcGauge(QWidget):
 class SignalBridge(QObject):
     bar_update = Signal(int)
     debug_update = Signal(dict)
+    stage_highlight = Signal(int)  # index of active stage (-1 = none)
 
 
 # ─────────────────────────── Bind Button ─────────────────────────────────────
@@ -654,6 +683,7 @@ class HandbrakeApp(QMainWindow):
         self.signals = SignalBridge()
         self.signals.bar_update.connect(self._update_gauge)
         self.signals.debug_update.connect(self._forward_debug)
+        self.signals.stage_highlight.connect(self._highlight_active_stage)
 
         pygame.display.init()
         pygame.joystick.init()
@@ -701,6 +731,15 @@ class HandbrakeApp(QMainWindow):
         debug_btn.setToolTip("Debug")
         debug_btn.clicked.connect(self._toggle_debug_viewer)
         tb.addWidget(debug_btn)
+
+        heart_btn = QPushButton("♥")
+        heart_btn.setObjectName("utilBtn")
+        heart_btn.setToolTip("Support on Ko-fi")
+        heart_btn.setStyleSheet("color: #f472b6;")
+        heart_btn.clicked.connect(
+            lambda: QDesktopServices.openUrl(_QUrl("https://ko-fi.com/ashelol"))
+        )
+        tb.addWidget(heart_btn)
 
         tb.addSpacing(4)
 
@@ -766,127 +805,131 @@ class HandbrakeApp(QMainWindow):
         root.addWidget(card_dev)
         root.addSpacing(10)
 
-        # ── Mapping Card ─────────────────────────────────────────────────────
-        root.addWidget(self._section("MAPPING"))
+        # ── Stages ───────────────────────────────────────────────────────
+        root.addWidget(self._section("STAGES"))
         root.addSpacing(4)
 
-        card_map = self._card()
-        map_lay = QVBoxLayout(card_map)
-        map_lay.setContentsMargins(14, 10, 14, 10)
-        map_lay.setSpacing(4)
-
         self.stages_layout = QVBoxLayout()
-        self.stages_layout.setSpacing(4)
+        self.stages_layout.setSpacing(6)
         self.stages: list[dict] = []
-        map_lay.addLayout(self.stages_layout)
+        root.addLayout(self.stages_layout)
 
-        self._add_stage(label="First stage", pct=0, pct_editable=False, btn_val=14)
-        self._add_stage(label="Last stage", pct=100, pct_editable=False, btn_val=14)
+        self._add_stage(label="Disengaged", pct=0, pct_editable=False, removable=False, btn_val=14)
+        self._add_stage(label="Engaged", pct=100, pct_editable=True, removable=False, btn_val=14)
 
+        root.addSpacing(4)
         self.add_stage_btn = QPushButton("+  Add Stage")
         self.add_stage_btn.setObjectName("addStageBtn")
         self.add_stage_btn.setMinimumHeight(30)
         self.add_stage_btn.clicked.connect(self._add_middle_stage)
-        map_lay.addWidget(self.add_stage_btn)
+        root.addWidget(self.add_stage_btn)
 
-        root.addWidget(card_map)
         root.addSpacing(10)
 
-        # ── Configuration Card ───────────────────────────────────────────────
-        root.addWidget(self._section("CONFIGURATION"))
+        # ── Transition Card ──────────────────────────────────────────────────
+        root.addWidget(self._section("TRANSITION"))
         root.addSpacing(4)
 
-        card_cfg = self._card()
-        cfg_lay = QVBoxLayout(card_cfg)
-        cfg_lay.setContentsMargins(14, 10, 14, 10)
-        cfg_lay.setSpacing(6)
+        card_trans = self._card()
+        trans_lay = QVBoxLayout(card_trans)
+        trans_lay.setContentsMargins(14, 10, 14, 10)
+        trans_lay.setSpacing(6)
 
-        # Grid layout for compact settings
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(6)
+        # Mode row
+        mode_row = QHBoxLayout()
+        mode_row.setSpacing(12)
+        lbl_mode = QLabel("Mode")
+        lbl_mode.setObjectName("fieldLabel")
+        mode_row.addWidget(lbl_mode)
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["Instant", "Smooth"])
+        self.mode_combo.setFixedWidth(100)
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        mode_row.addWidget(self.mode_combo)
+        mode_row.addStretch()
+        trans_lay.addLayout(mode_row)
 
-        # Row 0: vJoy + Axis
+        # Smooth settings (hidden by default)
+        self.smooth_widget = QWidget()
+        self.smooth_widget.setStyleSheet("background: transparent;")
+        smooth_inner = QVBoxLayout(self.smooth_widget)
+        smooth_inner.setContentsMargins(0, 4, 0, 0)
+        smooth_inner.setSpacing(10)
+
+        sep = QFrame()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background-color: rgba(255, 255, 255, 5);")
+        smooth_inner.addWidget(sep)
+
+        speed_row = QHBoxLayout()
+        speed_row.setSpacing(12)
+
+        lbl_engage = QLabel("Engage")
+        lbl_engage.setObjectName("fieldLabel")
+        speed_row.addWidget(lbl_engage)
+        self.engage_speed_spin = QSpinBox()
+        self.engage_speed_spin.setRange(10, 10000)
+        self.engage_speed_spin.setValue(200)
+        self.engage_speed_spin.setSuffix(" ms")
+        self.engage_speed_spin.setFixedWidth(90)
+        speed_row.addWidget(self.engage_speed_spin)
+
+        lbl_release = QLabel("Release")
+        lbl_release.setObjectName("fieldLabel")
+        speed_row.addWidget(lbl_release)
+        self.release_speed_spin = QSpinBox()
+        self.release_speed_spin.setRange(10, 10000)
+        self.release_speed_spin.setValue(333)
+        self.release_speed_spin.setSuffix(" ms")
+        self.release_speed_spin.setFixedWidth(90)
+        speed_row.addWidget(self.release_speed_spin)
+
+        speed_row.addStretch()
+        smooth_inner.addLayout(speed_row)
+        self.smooth_widget.setVisible(False)
+        trans_lay.addWidget(self.smooth_widget)
+
+        root.addWidget(card_trans)
+        root.addSpacing(10)
+
+        # ── Output Card ──────────────────────────────────────────────────────
+        root.addWidget(self._section("OUTPUT"))
+        root.addSpacing(4)
+
+        card_out = self._card()
+        out_lay = QHBoxLayout(card_out)
+        out_lay.setContentsMargins(14, 10, 14, 10)
+        out_lay.setSpacing(12)
+
         lbl_vjoy = QLabel("vJoy Device")
         lbl_vjoy.setObjectName("fieldLabel")
-        grid.addWidget(lbl_vjoy, 0, 0)
+        out_lay.addWidget(lbl_vjoy)
         self.vjoy_spin = QSpinBox()
         self.vjoy_spin.setRange(1, 16)
         self.vjoy_spin.setValue(1)
-        self.vjoy_spin.setFixedWidth(60)
-        grid.addWidget(self.vjoy_spin, 0, 1)
+        self.vjoy_spin.setFixedWidth(40)
+        out_lay.addWidget(self.vjoy_spin)
 
         lbl_axis = QLabel("Axis")
         lbl_axis.setObjectName("fieldLabel")
-        grid.addWidget(lbl_axis, 0, 2)
+        out_lay.addWidget(lbl_axis)
         self.axis_combo = QComboBox()
         self.axis_combo.addItems(list(self.AXES.keys()))
         self.axis_combo.setFixedWidth(100)
-        grid.addWidget(self.axis_combo, 0, 3)
+        out_lay.addWidget(self.axis_combo)
 
-        # Row 1: Poll rate + Mode
         lbl_rate = QLabel("Poll Rate")
         lbl_rate.setObjectName("fieldLabel")
-        grid.addWidget(lbl_rate, 1, 0)
+        out_lay.addWidget(lbl_rate)
         self.rate_spin = QSpinBox()
         self.rate_spin.setRange(30, 1000)
         self.rate_spin.setValue(120)
         self.rate_spin.setSuffix(" Hz")
         self.rate_spin.setFixedWidth(80)
-        grid.addWidget(self.rate_spin, 1, 1)
+        out_lay.addWidget(self.rate_spin)
 
-        lbl_mode = QLabel("Mode")
-        lbl_mode.setObjectName("fieldLabel")
-        grid.addWidget(lbl_mode, 1, 2)
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Instant", "Smooth"])
-        self.mode_combo.setFixedWidth(100)
-        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        grid.addWidget(self.mode_combo, 1, 3)
-
-        cfg_lay.addLayout(grid)
-
-        # Smooth settings (hidden by default)
-        self.smooth_widget = QWidget()
-        self.smooth_widget.setStyleSheet("background: transparent;")
-        smooth_lay = QVBoxLayout(self.smooth_widget)
-        smooth_lay.setContentsMargins(0, 4, 0, 0)
-        smooth_lay.setSpacing(4)
-
-        sep = QFrame()
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("background-color: rgba(255, 255, 255, 5);")
-        smooth_lay.addWidget(sep)
-
-        smooth_grid = QGridLayout()
-        smooth_grid.setHorizontalSpacing(12)
-        smooth_grid.setVerticalSpacing(6)
-
-        lbl_engage = QLabel("Engage")
-        lbl_engage.setObjectName("fieldLabel")
-        smooth_grid.addWidget(lbl_engage, 0, 0)
-        self.engage_speed_spin = QSpinBox()
-        self.engage_speed_spin.setRange(10, 10000)
-        self.engage_speed_spin.setValue(500)
-        self.engage_speed_spin.setSuffix(" %/s")
-        self.engage_speed_spin.setFixedWidth(90)
-        smooth_grid.addWidget(self.engage_speed_spin, 0, 1)
-
-        lbl_release = QLabel("Release")
-        lbl_release.setObjectName("fieldLabel")
-        smooth_grid.addWidget(lbl_release, 0, 2)
-        self.release_speed_spin = QSpinBox()
-        self.release_speed_spin.setRange(10, 10000)
-        self.release_speed_spin.setValue(300)
-        self.release_speed_spin.setSuffix(" %/s")
-        self.release_speed_spin.setFixedWidth(90)
-        smooth_grid.addWidget(self.release_speed_spin, 0, 3)
-
-        smooth_lay.addLayout(smooth_grid)
-        self.smooth_widget.setVisible(False)
-        cfg_lay.addWidget(self.smooth_widget)
-
-        root.addWidget(card_cfg)
+        out_lay.addStretch()
+        root.addWidget(card_out)
         root.addSpacing(14)
 
         # ── Action Buttons ───────────────────────────────────────────────────
@@ -949,8 +992,8 @@ class HandbrakeApp(QMainWindow):
             self.mode_combo.setCurrentIndex(mode_idx)
 
         # Smooth speeds
-        self.engage_speed_spin.setValue(cfg.get("engage_speed", 500))
-        self.release_speed_spin.setValue(cfg.get("release_speed", 300))
+        self.engage_speed_spin.setValue(cfg.get("engage_speed", 200))
+        self.release_speed_spin.setValue(cfg.get("release_speed", 333))
 
         # Stages — rebuild from config
         saved_stages = cfg.get("stages", [])
@@ -966,6 +1009,7 @@ class HandbrakeApp(QMainWindow):
                     label=sd.get("label"),
                     pct=sd.get("percent", 50),
                     pct_editable=sd.get("editable", True),
+                    removable=sd.get("removable", sd.get("editable", True)),
                     btn_val=sd.get("button", 0),
                 )
 
@@ -983,6 +1027,7 @@ class HandbrakeApp(QMainWindow):
                 "percent":  s["pct_spin"].value(),
                 "button":   s["bind_btn"].value(),
                 "editable": s["pct_editable"],
+                "removable": s["removable"],
             })
 
         cfg = {
@@ -1039,6 +1084,8 @@ class HandbrakeApp(QMainWindow):
             js = pygame.joystick.Joystick(i)
             js.init()
             name = js.get_name()
+            if "vjoy" in name.lower():
+                continue
             self.devices.append(name)
             if "g920" in name.lower() or "logitech" in name.lower():
                 auto_select = i  # auto-select common wheels
@@ -1055,49 +1102,83 @@ class HandbrakeApp(QMainWindow):
 
     # ──────────────────────────── Stages ─────────────────────────────────────
 
-    def _add_stage(self, label=None, pct=50, pct_editable=True, btn_val=0, insert_before_last=False):
+    def _add_stage(self, label=None, pct=50, pct_editable=True, removable=True, btn_val=0, insert_before_last=False):
         if label is None:
-            middle_count = sum(1 for s in self.stages if s["pct_editable"])
-            label = f"Stage {middle_count + 1}"
+            middle_count = sum(1 for s in self.stages if s["removable"])
+            label = f"Partially engaged {middle_count + 1}" if middle_count > 0 else "Partially engaged"
 
+        # Determine indicator color by stage type
+        if not removable and not pct_editable:
+            dot_color = "#818cf8"   # indigo — first (Disengaged)
+        elif not removable and pct_editable:
+            dot_color = "#34d399"   # emerald — last (Engaged)
+        else:
+            dot_color = "#a78bfa"   # violet — middle
+
+        # ── Stage sub-card ────────────────────────────────────────────────
         row = QFrame()
-        row.setStyleSheet("background: transparent; border: none;")
+        row.setObjectName("stageRow")
         row_lay = QHBoxLayout(row)
-        row_lay.setContentsMargins(0, 2, 0, 2)
-        row_lay.setSpacing(6)
+        row_lay.setContentsMargins(14, 10, 10, 10)
+        row_lay.setSpacing(10)
 
+        # Colored dot indicator
+        indicator = QLabel("●")
+        indicator.setStyleSheet(
+            f"color: {dot_color}; font-size: 8px; background: transparent; border: none;"
+        )
+        indicator.setFixedWidth(10)
+        row_lay.addWidget(indicator)
+
+        # Stage name
         name_lbl = QLabel(label)
-        name_lbl.setObjectName("fieldLabel")
-        name_lbl.setFixedWidth(80)
+        name_lbl.setObjectName("stageName")
+        name_lbl.setMinimumWidth(120)
         row_lay.addWidget(name_lbl)
 
+        row_lay.addStretch()
+
+        # Percentage
         pct_spin = QSpinBox()
         pct_spin.setRange(0, 100)
         pct_spin.setValue(pct)
         pct_spin.setSuffix(" %")
         pct_spin.setFixedWidth(64)
+        pct_spin.setAlignment(Qt.AlignCenter)
         pct_spin.setEnabled(pct_editable)
-        row_lay.addWidget(pct_spin)
+        if not pct_editable:
+            # Show fixed percentages as a styled pill label instead
+            pct_spin.setVisible(False)
+            pct_pill = QLabel(f"{pct} %")
+            pct_pill.setObjectName("pctPill")
+            pct_pill.setFixedWidth(64)
+            pct_pill.setAlignment(Qt.AlignCenter)
+            row_lay.addWidget(pct_pill)
+        else:
+            row_lay.addWidget(pct_spin)
 
+        # Bind button
         bind_btn = BindButton(initial_btn=btn_val)
         row_lay.addWidget(bind_btn)
 
+        # Remove button (middle stages only)
         remove_btn = None
-        if pct_editable:
+        if removable:
             remove_btn = QPushButton("✕")
             remove_btn.setObjectName("removeStageBtn")
-            remove_btn.setFixedSize(26, 26)
+            remove_btn.setFixedSize(26, 34)
             row_lay.addWidget(remove_btn)
-
-        row_lay.addStretch()
 
         stage_data = {
             "widget": row,
             "pct_spin": pct_spin,
             "bind_btn": bind_btn,
             "pct_editable": pct_editable,
+            "removable": removable,
             "name_lbl": name_lbl,
             "remove_btn": remove_btn,
+            "indicator": indicator,
+            "dot_color": dot_color,
         }
 
         if insert_before_last and len(self.stages) >= 1:
@@ -1116,11 +1197,12 @@ class HandbrakeApp(QMainWindow):
         self._renumber_middle_stages()
 
     def _renumber_middle_stages(self):
-        num = 1
-        for s in self.stages:
-            if s["pct_editable"]:
-                s["name_lbl"].setText(f"Stage {num}")
-                num += 1
+        middle = [s for s in self.stages if s["removable"]]
+        for i, s in enumerate(middle):
+            if len(middle) > 1:
+                s["name_lbl"].setText(f"Partially engaged {i + 1}")
+            else:
+                s["name_lbl"].setText("Partially engaged")
 
     def _remove_stage(self, stage_data):
         if stage_data in self.stages:
@@ -1188,8 +1270,8 @@ class HandbrakeApp(QMainWindow):
             return
 
         smooth = self.mode_combo.currentIndex() == 1
-        engage_speed = self.engage_speed_spin.value() / 100.0
-        release_speed = self.release_speed_spin.value() / 100.0
+        engage_speed = 1000.0 / self.engage_speed_spin.value()
+        release_speed = 1000.0 / self.release_speed_spin.value()
 
         self.running = True
         self._set_controls(False)
@@ -1221,6 +1303,7 @@ class HandbrakeApp(QMainWindow):
         self.stop_btn.setEnabled(False)
         self.status_label.setText("Idle")
         self.status_label.setStyleSheet("color: #52525b;")
+        self._highlight_active_stage(-1)
         self._update_gauge(0)
 
     # ──────────────────────────── Loop ────────────────────────────────────────
@@ -1228,6 +1311,7 @@ class HandbrakeApp(QMainWindow):
     def _loop(self, stage_list, axis, rate, smooth=False, engage_speed=5.0, release_speed=3.0):
         clock = pygame.time.Clock()
         prev_pct = -1
+        prev_stage_idx = -2  # force first emit
         current_pct = 0.0
         last_time = time.perf_counter()
 
@@ -1240,16 +1324,27 @@ class HandbrakeApp(QMainWindow):
             # Check non-None stages first
             any_real_pressed = False
             target_pct = 0.0
-            none_pct = 0.0
-            for btn, pct in stage_list:
+            none_pct = -1.0
+            active_stage_idx = -1
+            none_stage_idx = -1
+            for i, (btn, pct) in enumerate(stage_list):
                 if btn == -1:
-                    none_pct = max(none_pct, pct)
+                    if pct > none_pct:
+                        none_pct = pct
+                        none_stage_idx = i
                 elif self.joystick.get_button(btn):
                     any_real_pressed = True
-                    target_pct = max(target_pct, pct)
+                    if pct >= target_pct:
+                        target_pct = pct
+                        active_stage_idx = i
             # None stages activate when no real buttons are pressed
             if not any_real_pressed:
-                target_pct = max(target_pct, none_pct)
+                target_pct = max(target_pct, max(none_pct, 0.0))
+                active_stage_idx = none_stage_idx
+
+            # Default to Disengaged (first stage) when nothing else is active
+            if active_stage_idx == -1:
+                active_stage_idx = 0
 
             if smooth:
                 if target_pct > current_pct:
@@ -1266,6 +1361,10 @@ class HandbrakeApp(QMainWindow):
                 self.vj.set_axis(axis, axis_val)
                 prev_pct = pct_int
                 self.signals.bar_update.emit(pct_int)
+
+            if active_stage_idx != prev_stage_idx:
+                prev_stage_idx = active_stage_idx
+                self.signals.stage_highlight.emit(active_stage_idx)
 
             active_btns = []
             for btn, _ in stage_list:
@@ -1288,6 +1387,22 @@ class HandbrakeApp(QMainWindow):
             })
 
             clock.tick(rate)
+
+    def _highlight_active_stage(self, idx):
+        """Set active stage border to its indicator color, reset others."""
+        for i, s in enumerate(self.stages):
+            widget = s["widget"]
+            if i == idx:
+                color = s["dot_color"]
+                widget.setStyleSheet(
+                    f"QFrame#stageRow {{"
+                    f"  background-color: rgba(255, 255, 255, 5);"
+                    f"  border: 1px solid {color};"
+                    f"  border-radius: 10px;"
+                    f"}}"
+                )
+            else:
+                widget.setStyleSheet("")
 
     def _update_gauge(self, pct):
         self.gauge.setValue(pct)
